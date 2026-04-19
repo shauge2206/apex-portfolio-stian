@@ -1,11 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { getFirmMedia, getAllFirmSlugs } from '@/lib/cloudinary'
+import { getFirmMedia } from '@/lib/cloudinary'
 import FirmGallery from '@/components/FirmGallery'
-
-export async function generateStaticParams() {
-  return getAllFirmSlugs()
-}
 
 export const revalidate = 3600
 

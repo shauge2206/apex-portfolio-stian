@@ -1,6 +1,8 @@
 import { getFirmMedia } from '@/lib/cloudinary'
 import { NextResponse } from 'next/server'
 
+export const revalidate = 3600
+
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ category: string; firm: string }> }
