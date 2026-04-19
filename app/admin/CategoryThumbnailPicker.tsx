@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { setThumbnail, clearThumbnail } from './actions'
+import { setCategoryThumbnail, clearCategoryThumbnail } from './actions'
 import ThumbnailCropEditor from './ThumbnailCropEditor'
 import VideoFramePicker from './VideoFramePicker'
 
@@ -15,9 +15,9 @@ interface MediaItem {
   height?: number
 }
 
-interface Firm {
-  name: string
+interface CategoryItem {
   slug: string
+  name: string
   currentThumbnailId: string | null
   currentOffset?: number
   currentFocalPoint?: FocalPoint
@@ -32,13 +32,13 @@ type Mode =
   | { type: 'video'; publicId: string; offset: number }
 
 
-export default function ThumbnailPicker({ firms, cloudName }: { firms: Firm[]; cloudName: string }) {
+export default function CategoryThumbnailPicker({ categories, cloudName }: { categories: CategoryItem[]; cloudName: string }) {
   const [open, setOpen] = useState<string | null>(null)
   const [mode, setMode] = useState<Mode>({ type: 'grid' })
   const [pending, startTransition] = useTransition()
 
-  const activeFirm = firms.find((f) => f.slug === open)
-  const allMedia = activeFirm ? [...activeFirm.images, ...activeFirm.videos] : []
+  const activeCat = categories.find((c) => c.slug === open)
+  const allMedia = activeCat ? [...activeCat.images, ...activeCat.videos] : []
 
   const closeModal = () => {
     setOpen(null)
@@ -47,55 +47,55 @@ export default function ThumbnailPicker({ firms, cloudName }: { firms: Firm[]; c
 
   const handleItemClick = (item: MediaItem) => {
     if (item.type === 'video') {
-      setMode({ type: 'video', publicId: item.publicId, offset: activeFirm?.currentOffset ?? 0 })
+      setMode({ type: 'video', publicId: item.publicId, offset: activeCat?.currentOffset ?? 0 })
     } else {
       setMode({ type: 'crop', item })
     }
   }
 
-  const confirmCrop = (firmSlug: string, publicId: string, focalPoint: FocalPoint | null) => {
+  const confirmCrop = (categorySlug: string, publicId: string, focalPoint: FocalPoint | null) => {
     startTransition(async () => {
-      await setThumbnail(firmSlug, publicId, undefined, focalPoint)
+      await setCategoryThumbnail(categorySlug, publicId, undefined, focalPoint)
       closeModal()
     })
   }
 
-  const confirmVideo = (firmSlug: string, publicId: string, offset: number) => {
+  const confirmVideo = (categorySlug: string, publicId: string, offset: number) => {
     startTransition(async () => {
-      await setThumbnail(firmSlug, publicId, offset)
+      await setCategoryThumbnail(categorySlug, publicId, offset)
       closeModal()
     })
   }
 
-  const reset = (firmSlug: string) => {
-    startTransition(async () => { await clearThumbnail(firmSlug) })
+  const reset = (categorySlug: string) => {
+    startTransition(async () => { await clearCategoryThumbnail(categorySlug) })
   }
 
   return (
     <>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-        {firms.map((firm) => {
-          const hasMedia = firm.images.length > 0 || firm.videos.length > 0
+        {categories.map((cat) => {
+          const hasMedia = cat.images.length > 0 || cat.videos.length > 0
           return (
-            <div key={firm.slug} className="bg-[#111] rounded overflow-hidden">
+            <div key={cat.slug} className="bg-[#111] rounded overflow-hidden">
               <div className="relative aspect-[4/3] bg-[#1a1a1a]">
-                {firm.thumbnailUrl && (
-                  <img src={firm.thumbnailUrl} className="w-full h-full object-cover" alt="" />
+                {cat.thumbnailUrl && (
+                  <img src={cat.thumbnailUrl} className="w-full h-full object-cover" alt="" />
                 )}
               </div>
               <div className="p-3">
-                <p className="text-sm font-medium text-white truncate mb-2">{firm.name}</p>
+                <p className="text-sm font-medium text-white truncate mb-2">{cat.name}</p>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => { setOpen(firm.slug); setMode({ type: 'grid' }) }}
+                    onClick={() => { setOpen(cat.slug); setMode({ type: 'grid' }) }}
                     disabled={!hasMedia}
                     className="flex-1 text-xs bg-white/10 hover:bg-white/20 text-white py-1.5 rounded transition-colors disabled:opacity-30"
                   >
                     {hasMedia ? 'Change' : 'No media'}
                   </button>
-                  {firm.currentThumbnailId && (
+                  {cat.currentThumbnailId && (
                     <button
-                      onClick={() => reset(firm.slug)}
+                      onClick={() => reset(cat.slug)}
                       className="text-xs text-white/40 hover:text-white px-2 transition-colors"
                       title="Reset to default"
                     >
@@ -109,12 +109,12 @@ export default function ThumbnailPicker({ firms, cloudName }: { firms: Firm[]; c
         })}
       </div>
 
-      {open && activeFirm && (
+      {open && activeCat && (
         <div className="fixed inset-0 z-50 bg-black/90 overflow-y-auto" onClick={closeModal}>
           <div className="min-h-full flex items-start justify-center p-4 py-8">
             <div className="bg-[#111] rounded-lg max-w-4xl w-full p-6" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-white font-medium">{activeFirm.name} — pick thumbnail</h2>
+                <h2 className="text-white font-medium">{activeCat.name} — velg kategorithumbnail</h2>
                 <button onClick={closeModal} className="text-white/40 hover:text-white text-xl leading-none">×</button>
               </div>
 
@@ -125,11 +125,11 @@ export default function ThumbnailPicker({ firms, cloudName }: { firms: Firm[]; c
                   imageHeight={mode.item.height ?? 800}
                   cloudName={cloudName}
                   initialFocalPoint={
-                    mode.item.publicId === activeFirm.currentThumbnailId
-                      ? activeFirm.currentFocalPoint
+                    mode.item.publicId === activeCat.currentThumbnailId
+                      ? activeCat.currentFocalPoint
                       : undefined
                   }
-                  onConfirm={(fp) => confirmCrop(activeFirm.slug, mode.item.publicId, fp)}
+                  onConfirm={(fp) => confirmCrop(activeCat.slug, mode.item.publicId, fp)}
                   onBack={() => setMode({ type: 'grid' })}
                 />
               )}
@@ -139,7 +139,7 @@ export default function ThumbnailPicker({ firms, cloudName }: { firms: Firm[]; c
                   publicId={mode.publicId}
                   cloudName={cloudName}
                   initialOffset={mode.offset}
-                  onConfirm={(offset) => confirmVideo(activeFirm.slug, mode.publicId, offset)}
+                  onConfirm={(offset) => confirmVideo(activeCat.slug, mode.publicId, offset)}
                   onBack={() => setMode({ type: 'grid' })}
                 />
               )}
@@ -152,7 +152,7 @@ export default function ThumbnailPicker({ firms, cloudName }: { firms: Firm[]; c
                       onClick={() => handleItemClick(item)}
                       disabled={pending}
                       className={`relative overflow-hidden rounded transition-opacity ${
-                        item.publicId === activeFirm.currentThumbnailId ? 'ring-2 ring-white' : 'hover:opacity-80'
+                        item.publicId === activeCat.currentThumbnailId ? 'ring-2 ring-white' : 'hover:opacity-80'
                       }`}
                     >
                       <img src={item.url} className="w-full h-auto block" alt="" />

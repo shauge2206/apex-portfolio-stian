@@ -12,6 +12,48 @@ function getThumbnailOverrides(): Record<string, string> {
   }
 }
 
+function getThumbnailOffsets(): Record<string, number> {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data/thumbnail-offsets.json'), 'utf-8'))
+  } catch {
+    return {}
+  }
+}
+
+function getThumbnailFocalPoints(): Record<string, { x: number; y: number }> {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data/thumbnail-focal-points.json'), 'utf-8'))
+  } catch {
+    return {}
+  }
+}
+
+function getHiddenSlugs(): Set<string> {
+  try {
+    const arr = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data/hidden.json'), 'utf-8'))
+    return new Set(arr)
+  } catch {
+    return new Set()
+  }
+}
+
+function getHiddenCategorySlugs(): Set<string> {
+  try {
+    const arr = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data/hidden-categories.json'), 'utf-8'))
+    return new Set(arr)
+  } catch {
+    return new Set()
+  }
+}
+
+function getOrderMap(): Record<string, string[]> {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data/order.json'), 'utf-8'))
+  } catch {
+    return {}
+  }
+}
+
 cloudinary.config({
   cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -47,9 +89,6 @@ function videoThumbUrl(publicId: string, startOffset = 0): string {
   })
 }
 
-// Firms to hide from the portfolio
-const HIDDEN_FIRM_SLUGS = new Set(['moya-foodpit'])
-
 // Firms that get a double-width tile on the portfolio page
 const WIDE_FIRM_SLUGS = new Set(['wasco', 'egon', 'kys'])
 
@@ -60,7 +99,11 @@ const FIRM_VIDEO_OFFSET: Record<string, number> = {
   leela: 6,
   'asian-fusion': 6,
   porto13: 6,
+  bilia: 3,
 }
+
+// Firms that should use a video frame as thumbnail even when images exist
+const VIDEO_THUMBNAIL_FIRMS = new Set(['bilia'])
 
 // ─── Raw resource types stored in cache ───────────────────────────────────────
 
@@ -97,15 +140,20 @@ interface CachedCategory {
 async function fetchAllPortfolioData(): Promise<CachedCategory[]> {
   const { folders: categoryFolders } = await cloudinary.api.sub_folders('apex')
 
+  const EXCLUDED_FOLDERS = new Set(['logo'])
+  const hiddenCats = getHiddenCategorySlugs()
+
   return Promise.all(
-    categoryFolders.map(async (cf: { name: string; path: string }) => {
+    categoryFolders
+      .filter((cf: { name: string }) => !EXCLUDED_FOLDERS.has(toSlug(cf.name)) && !hiddenCats.has(toSlug(cf.name)))
+      .map(async (cf: { name: string; path: string }) => {
       const { folders: firmFolders } = await cloudinary.api
         .sub_folders(cf.path)
         .catch(() => ({ folders: [] }))
 
       const firms: CachedFirm[] = await Promise.all(
         firmFolders
-          .filter((ff: { name: string }) => !HIDDEN_FIRM_SLUGS.has(toSlug(ff.name)))
+          .filter((ff: { name: string }) => !getHiddenSlugs().has(toSlug(ff.name)))
           .map(async (ff: { name: string; path: string }) => {
           // Each firm has subfolders (e.g. "bilder", "video").
           // resources_by_asset_folder does NOT support resource_type filter —
@@ -167,7 +215,7 @@ async function fetchAllPortfolioData(): Promise<CachedCategory[]> {
 
 // Cache the full tree for 1 hour. All page functions read from this cache —
 // only one set of Cloudinary admin API calls per hour regardless of traffic.
-export const getPortfolioCache = unstable_cache(fetchAllPortfolioData, ['portfolio-data'], {
+export const getPortfolioCache = unstable_cache(fetchAllPortfolioData, ['portfolio-data-v4'], {
   revalidate: 3600,
 })
 
@@ -274,56 +322,89 @@ export async function getFirmMedia(categorySlug: string, firmSlug: string) {
 export async function getAllProjects() {
   const categories = await getPortfolioCache()
 
-  return categories.flatMap((cat) =>
-    cat.firms.map((firm) => {
-      const firstImage = firm.images[0]
-      const firstVideo = firm.videos[0]
+  const orderMap = getOrderMap()
+  const hiddenSlugs = getHiddenSlugs()
+  const thumbOffsets = getThumbnailOffsets()
+  const thumbFocalPoints = getThumbnailFocalPoints()
 
-      let thumbnailUrl: string | undefined
-      let thumbnailWidth = 800
-      let thumbnailHeight = 600
+  return categories.flatMap((cat) => {
+    const ordered = orderMap[cat.slug]
+    const firms = ordered
+      ? [...cat.firms].sort((a, b) => {
+          const ai = ordered.indexOf(a.slug)
+          const bi = ordered.indexOf(b.slug)
+          if (ai === -1 && bi === -1) return 0
+          if (ai === -1) return 1
+          if (bi === -1) return -1
+          return ai - bi
+        })
+      : cat.firms
 
-      const overrideId = getThumbnailOverrides()[firm.slug]
-      const overrideImage = overrideId ? firm.images.find((r) => r.publicId === overrideId) : null
-      const overrideVideo = overrideId ? firm.videos.find((r) => r.publicId === overrideId) : null
+    return firms
+      .filter((firm) => !hiddenSlugs.has(firm.slug))
+      .map((firm) => {
+        const firstImage = firm.images[0]
+        const firstVideo = firm.videos[0]
 
-      if (overrideImage) {
-        thumbnailUrl = imgUrl(overrideImage.publicId, { width: 800, crop: 'limit' })
-        thumbnailWidth = overrideImage.width
-        thumbnailHeight = overrideImage.height
-      } else if (overrideVideo) {
-        thumbnailUrl = videoThumbUrl(overrideVideo.publicId)
-        thumbnailWidth = overrideVideo.width
-        thumbnailHeight = overrideVideo.height
-      } else if (firm.thumbnail) {
-        thumbnailUrl = imgUrl(firm.thumbnail.publicId, { width: 800, crop: 'limit' })
-        thumbnailWidth = firm.thumbnail.width
-        thumbnailHeight = firm.thumbnail.height
-      } else if (firstImage) {
-        thumbnailUrl = imgUrl(firstImage.publicId, { width: 800, crop: 'limit' })
-        thumbnailWidth = firstImage.width
-        thumbnailHeight = firstImage.height
-      } else if (firstVideo) {
-        const offset = FIRM_VIDEO_OFFSET[firm.slug] ?? 0
-        thumbnailUrl = videoThumbUrl(firstVideo.publicId, offset)
-        thumbnailWidth = firstVideo.width
-        thumbnailHeight = firstVideo.height
-      }
+        let thumbnailUrl: string | undefined
+        let thumbnailWidth = 800
+        let thumbnailHeight = 600
 
-      return {
-        name: firm.name,
-        slug: firm.slug,
-        category: firm.category,
-        categorySlug: firm.categorySlug,
-        imageCount: firm.images.length,
-        videoCount: firm.videos.length,
-        thumbnailUrl,
-        thumbnailWidth,
-        thumbnailHeight,
-        wide: WIDE_FIRM_SLUGS.has(firm.slug),
-      }
-    })
-  )
+        const overrideId = getThumbnailOverrides()[firm.slug]
+        const overrideImage = overrideId ? firm.images.find((r) => r.publicId === overrideId) : null
+        const overrideVideo = overrideId ? firm.videos.find((r) => r.publicId === overrideId) : null
+
+        if (overrideImage) {
+          const fp = thumbFocalPoints[firm.slug]
+          thumbnailUrl = fp
+            ? imgUrl(overrideImage.publicId, {
+                width: 800, height: 600, crop: 'fill',
+                gravity: 'xy_center',
+                x: Math.round(fp.x * overrideImage.width),
+                y: Math.round(fp.y * overrideImage.height),
+              })
+            : imgUrl(overrideImage.publicId, { width: 800, crop: 'limit' })
+          thumbnailWidth = overrideImage.width
+          thumbnailHeight = overrideImage.height
+        } else if (overrideVideo) {
+          const offset = thumbOffsets[firm.slug] ?? 0
+          thumbnailUrl = videoThumbUrl(overrideVideo.publicId, offset)
+          thumbnailWidth = overrideVideo.width
+          thumbnailHeight = overrideVideo.height
+        } else if (firm.thumbnail) {
+          thumbnailUrl = imgUrl(firm.thumbnail.publicId, { width: 800, crop: 'limit' })
+          thumbnailWidth = firm.thumbnail.width
+          thumbnailHeight = firm.thumbnail.height
+        } else if (firstVideo && VIDEO_THUMBNAIL_FIRMS.has(firm.slug)) {
+          const offset = FIRM_VIDEO_OFFSET[firm.slug] ?? 0
+          thumbnailUrl = videoThumbUrl(firstVideo.publicId, offset)
+          thumbnailWidth = firstVideo.width
+          thumbnailHeight = firstVideo.height
+        } else if (firstImage) {
+          thumbnailUrl = imgUrl(firstImage.publicId, { width: 800, crop: 'limit' })
+          thumbnailWidth = firstImage.width
+          thumbnailHeight = firstImage.height
+        } else if (firstVideo) {
+          const offset = FIRM_VIDEO_OFFSET[firm.slug] ?? 0
+          thumbnailUrl = videoThumbUrl(firstVideo.publicId, offset)
+          thumbnailWidth = firstVideo.width
+          thumbnailHeight = firstVideo.height
+        }
+
+        return {
+          name: firm.name,
+          slug: firm.slug,
+          category: firm.category,
+          categorySlug: firm.categorySlug,
+          imageCount: firm.images.length,
+          videoCount: firm.videos.length,
+          thumbnailUrl,
+          thumbnailWidth,
+          thumbnailHeight,
+          wide: WIDE_FIRM_SLUGS.has(firm.slug),
+        }
+      })
+  })
 }
 
 // ─── All slugs for generateStaticParams ───────────────────────────────────────

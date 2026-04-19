@@ -75,6 +75,8 @@ export default function ProjectModal({ categorySlug, firmSlug, onClose }: Props)
   const [data, setData] = useState<FirmData | null>(null)
   const [activeIndex, setActiveIndex] = useState(0)
   const stripRef = useRef<HTMLDivElement>(null)
+  const touchStartX = useRef(0)
+  const touchStartY = useRef(0)
 
   useEffect(() => {
     setData(null)
@@ -115,20 +117,24 @@ export default function ProjectModal({ categorySlug, firmSlug, onClose }: Props)
   const active = allMedia[activeIndex] ?? null
 
   return createPortal(
-    <div className="fixed inset-0 z-50 bg-[#0a0a0a]/98 flex flex-col backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex flex-col backdrop-blur-sm" style={{ background: 'var(--t-modal-bg)' }}>
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-4 shrink-0 border-b border-white/[0.06]">
+      <div
+        className="flex items-center justify-between px-5 py-4 shrink-0 border-b"
+        style={{ borderBottomColor: 'var(--t-border)' }}
+      >
         <div>
           {data && (
             <>
-              <p className="text-sm font-medium text-white/90 tracking-wide">{data.firmName}</p>
-              <p className="text-[11px] tracking-widest uppercase text-white/25 mt-0.5">{data.categoryName}</p>
+              <p className="text-sm font-medium tracking-wide" style={{ color: 'var(--t-text)' }}>{data.firmName}</p>
+              <p className="text-[11px] tracking-widest uppercase mt-0.5" style={{ color: 'var(--t-text-sub)' }}>{data.categoryName}</p>
             </>
           )}
         </div>
         <button
           onClick={onClose}
-          className="w-11 h-11 flex items-center justify-center text-white/30 hover:text-white transition-colors"
+          className="w-11 h-11 flex items-center justify-center transition-colors"
+          style={{ color: 'var(--t-text-sub)' }}
           aria-label="Lukk"
         >
           <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -138,12 +144,27 @@ export default function ProjectModal({ categorySlug, firmSlug, onClose }: Props)
       </div>
 
       {/* Main display + nav buttons */}
-      <div className="flex-1 flex items-center justify-center min-h-0 overflow-hidden relative">
+      <div
+        className="flex-1 flex items-center justify-center min-h-0 overflow-hidden relative"
+        onTouchStart={(e) => {
+          touchStartX.current = e.touches[0].clientX
+          touchStartY.current = e.touches[0].clientY
+        }}
+        onTouchEnd={(e) => {
+          const dx = e.changedTouches[0].clientX - touchStartX.current
+          const dy = e.changedTouches[0].clientY - touchStartY.current
+          if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
+            if (dx < 0) next()
+            else prev()
+          }
+        }}
+      >
         {/* Prev */}
         {allMedia.length > 1 && activeIndex > 0 && (
           <button
             onClick={prev}
-            className="absolute left-0 top-1/2 -translate-y-1/2 w-11 h-16 flex items-center justify-center text-white/40 hover:text-white transition-colors z-10"
+            className="absolute left-0 top-1/2 -translate-y-1/2 w-11 h-16 flex items-center justify-center transition-colors z-10"
+            style={{ color: 'var(--t-text-sub)' }}
             aria-label="Forrige"
           >
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -155,7 +176,10 @@ export default function ProjectModal({ categorySlug, firmSlug, onClose }: Props)
         {/* Media */}
         <div className="flex items-center justify-center w-full h-full px-14 relative">
           {!data && (
-            <div className="w-8 h-8 border border-white/20 border-t-white/60 rounded-full animate-spin" />
+            <div
+              className="w-8 h-8 rounded-full animate-spin border"
+              style={{ borderColor: 'var(--t-border)', borderTopColor: 'var(--t-text)' }}
+            />
           )}
           {allMedia.map((item, i) => {
             const isActive = i === activeIndex
@@ -188,7 +212,8 @@ export default function ProjectModal({ categorySlug, firmSlug, onClose }: Props)
         {allMedia.length > 1 && activeIndex < allMedia.length - 1 && (
           <button
             onClick={next}
-            className="absolute right-0 top-1/2 -translate-y-1/2 w-11 h-16 flex items-center justify-center text-white/40 hover:text-white transition-colors z-10"
+            className="absolute right-0 top-1/2 -translate-y-1/2 w-11 h-16 flex items-center justify-center transition-colors z-10"
+            style={{ color: 'var(--t-text-sub)' }}
             aria-label="Neste"
           >
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -198,38 +223,50 @@ export default function ProjectModal({ categorySlug, firmSlug, onClose }: Props)
         )}
       </div>
 
-      {/* Thumbnail strip */}
+      {/* Thumbnail rows */}
       {allMedia.length > 1 && (
         <div
           ref={stripRef}
-          className="flex gap-2 px-4 py-3 overflow-x-auto shrink-0"
-          style={{ scrollbarWidth: 'none' }}
+          className="shrink-0 border-t px-4 py-3 space-y-3"
+          style={{ borderTopColor: 'var(--t-border)' }}
         >
-          {allMedia.map((item, i) => (
-            <button
-              key={item.publicId}
-              onClick={() => setActiveIndex(i)}
-              className={`relative flex-none h-16 overflow-hidden rounded transition-opacity ${
-                i === activeIndex ? 'ring-2 ring-white opacity-100' : 'opacity-40 hover:opacity-80'
-              }`}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={item.thumbnailUrl}
-                alt=""
-                className="h-full w-auto object-cover"
-              />
-              {item.resourceType === 'video' && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-6 h-6 rounded-full bg-black/60 flex items-center justify-center">
-                    <svg className="w-2.5 h-2.5 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M8 5v14l11-7z" />
-                    </svg>
-                  </div>
+          {(['video', 'image'] as const).map((type) => {
+            const items = allMedia.map((item, i) => ({ item, i })).filter(({ item }) => item.resourceType === type)
+            if (items.length === 0) return null
+            return (
+              <div key={type}>
+                <p className="text-[10px] tracking-[0.2em] uppercase mb-2" style={{ color: 'var(--t-text-sub)' }}>
+                  {type === 'video' ? 'Videoer' : 'Bilder'}
+                </p>
+                <div className="flex justify-center gap-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+                  {items.map(({ item, i }) => (
+                    <button
+                      key={item.publicId}
+                      onClick={() => setActiveIndex(i)}
+                      className="relative flex-none h-16 overflow-hidden rounded transition-opacity"
+                      style={
+                        i === activeIndex
+                          ? { boxShadow: '0 0 0 2px var(--t-accent)', opacity: 1 }
+                          : { opacity: 0.4 }
+                      }
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={item.thumbnailUrl} alt="" className="h-full w-auto object-cover" />
+                      {type === 'video' && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="w-6 h-6 rounded-full bg-black/60 flex items-center justify-center">
+                            <svg className="w-2.5 h-2.5 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M8 5v14l11-7z" />
+                            </svg>
+                          </div>
+                        </div>
+                      )}
+                    </button>
+                  ))}
                 </div>
-              )}
-            </button>
-          ))}
+              </div>
+            )
+          })}
         </div>
       )}
     </div>,

@@ -1,17 +1,29 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0f0f0f;
-  --foreground: #f0ede8;
+  --t-bg: #10131b;
+  --t-surface: #1a1e2d;
+  --t-elevated: #232b40;
+  --t-text: #e8eaf0;
+  --t-text-sub: rgba(232, 234, 240, 0.35);
+  --t-border: rgba(232, 234, 240, 0.06);
+  --t-border-strong: rgba(232, 234, 240, 0.15);
+  --t-accent: #b8c7e5;
+  --t-radius: 0.25rem;
+  --t-modal-bg: rgba(10, 12, 20, 0.98);
+  --t-nav-bg: rgba(16, 19, 27, 0.85);
+  --t-scrollbar: rgba(255, 255, 255, 0.1);
+  --t-font-display: var(--font-space-grotesk, sans-serif);
+  --t-heading-transform: none;
+  --t-heading-tracking: -0.02em;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--t-bg);
+  color: var(--t-text);
 }
 
-/* Smooth scrollbar */
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(255,255,255,0.1) transparent;
+  scrollbar-color: var(--t-scrollbar) transparent;
 }
