@@ -34,7 +34,7 @@ function VideoItem({ item, isActive, preload }: { item: MediaItem; isActive: boo
   }
 
   return (
-    <div className="relative flex items-center justify-center" style={{ maxHeight: 'calc(100vh - 160px)', maxWidth: '100%' }}>
+    <div className="relative flex items-center justify-center" style={{ maxHeight: 'calc(100dvh - 200px)', maxWidth: '100%' }}>
       <video
         ref={ref}
         src={item.url}
@@ -43,7 +43,7 @@ function VideoItem({ item, isActive, preload }: { item: MediaItem; isActive: boo
         preload={preload}
         onClick={toggle}
         className="rounded-sm cursor-pointer block"
-        style={{ maxHeight: 'calc(100vh - 160px)', maxWidth: '100%' }}
+        style={{ maxHeight: 'calc(100dvh - 200px)', maxWidth: '100%' }}
       />
       {paused && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -153,7 +153,7 @@ export default function ProjectModal({ categorySlug, firmSlug, onClose }: Props)
         onTouchEnd={(e) => {
           const dx = e.changedTouches[0].clientX - touchStartX.current
           const dy = e.changedTouches[0].clientY - touchStartY.current
-          if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
+          if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 40) {
             if (dx < 0) next()
             else prev()
           }
@@ -183,11 +183,12 @@ export default function ProjectModal({ categorySlug, firmSlug, onClose }: Props)
           )}
           {allMedia.map((item, i) => {
             const isActive = i === activeIndex
+            if (Math.abs(i - activeIndex) > 1) return null
             return (
               <div
                 key={item.publicId}
                 className="absolute inset-0 flex items-center justify-center px-14"
-                style={{ opacity: isActive ? 1 : 0, pointerEvents: isActive ? 'auto' : 'none' }}
+                style={{ opacity: isActive ? 1 : 0, pointerEvents: isActive ? 'auto' : 'none', transition: 'opacity 0.5s ease' }}
               >
                 {item.resourceType === 'video' ? (
                   <VideoItem
@@ -200,7 +201,7 @@ export default function ProjectModal({ categorySlug, firmSlug, onClose }: Props)
                   <img
                     src={item.url}
                     alt=""
-                    style={{ maxHeight: 'calc(100vh - 160px)', maxWidth: '100%', objectFit: 'contain' }}
+                    style={{ maxHeight: 'calc(100dvh - 200px)', maxWidth: '100%', objectFit: 'contain' }}
                   />
                 )}
               </div>
@@ -251,7 +252,7 @@ export default function ProjectModal({ categorySlug, firmSlug, onClose }: Props)
                       }
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={item.thumbnailUrl} alt="" className="h-full w-auto object-cover" />
+                      <img src={item.thumbnailUrl} alt="" loading="lazy" className="h-full w-auto object-cover" />
                       {type === 'video' && (
                         <div className="absolute inset-0 flex items-center justify-center">
                           <div className="w-6 h-6 rounded-full bg-black/60 flex items-center justify-center">
