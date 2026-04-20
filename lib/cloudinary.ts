@@ -215,7 +215,7 @@ async function fetchAllPortfolioData(): Promise<CachedCategory[]> {
 
 // Cache the full tree for 1 hour. All page functions read from this cache —
 // only one set of Cloudinary admin API calls per hour regardless of traffic.
-export const getPortfolioCache = unstable_cache(fetchAllPortfolioData, ['portfolio-data-v4'], {
+export const getPortfolioCache = unstable_cache(fetchAllPortfolioData, ['portfolio-data-v5'], {
   revalidate: 3600,
 })
 
