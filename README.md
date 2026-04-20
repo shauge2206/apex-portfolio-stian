@@ -91,6 +91,46 @@ The `data/` folder holds all admin settings as JSON files. These are committed t
 
 ---
 
+## Cloudinary rate limits
+
+Cloudinary has two completely separate APIs with different limits:
+
+### Admin API — rate limited
+- Used to **discover content**: list folders, list files, get metadata
+- Limit: **500 calls per hour** per Cloudinary account
+- Resets 1 hour after the limit was first hit
+- Requires your secret API key — never exposed to visitors
+
+### Delivery CDN — no limit
+- Used to **serve images and videos** to visitors' browsers
+- Any URL like `https://res.cloudinary.com/dndi4tcz4/image/upload/...`
+- Unlimited requests — this is what your site visitors use
+- **Rate limiting never affects image/video loading on the live site**
+
+---
+
+## Why the Publish button exists
+
+Admin actions (changing thumbnails, order, visibility) save instantly to JSON files in `data/`. They do **not** call Cloudinary.
+
+Previously, saving in admin immediately refreshed the live page cache, which caused the app to re-fetch all content from Cloudinary. With multiple visitors or frequent admin saves, this would rapidly consume the 500/hour Admin API limit.
+
+The **Publiser endringer** button decouples saving from publishing:
+- Save as many changes as you want — zero Cloudinary calls
+- Click Publish once when ready — this clears the page cache so the live site shows the latest data
+
+---
+
+## How builds avoid rate limits
+
+Early in the project, deploying to Vercel hit the rate limit every time. The cause: Next.js uses 12 parallel build workers, and each one independently called Cloudinary to fetch all content (~42 API calls each × 12 workers = ~500 calls = limit hit).
+
+The fix: a prebuild script (`scripts/fetch-portfolio.mjs`) runs **once** before the Next.js build starts. It fetches all Cloudinary data and writes it to `data/portfolio-cache.json`. The 12 build workers then read from that file — zero additional Cloudinary calls during the build.
+
+**Total Admin API calls per deployment: ~42** (well within the 500/hour limit)
+
+---
+
 ## Tech stack
 
 - **Next.js 16** — framework
