@@ -1,36 +1,99 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Apex Bergen Portfolio
 
-## Getting Started
+Photography and videography portfolio for Apex Bergen. Built with Next.js and Cloudinary.
 
-First, run the development server:
+**Live site:** https://apex-portfolio-two.vercel.app
+**Admin panel:** https://apex-portfolio-two.vercel.app/admin
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+---
+
+## How it works
+
+Content is stored in Cloudinary under the `apex/` folder:
+- `apex/Logo/` — the logo image shown in the navbar
+- `apex/{Category}/{Project}/` — photos and videos per project
+
+The admin panel lets you manage thumbnails, ordering, and visibility without touching code. After making changes in admin, click **Publiser endringer** to update the live site.
+
+---
+
+## Local development
+
+1. Clone the repo
+2. Create `.env.local` with your credentials:
+   ```
+   NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=dndi4tcz4
+   CLOUDINARY_API_KEY=...
+   CLOUDINARY_API_SECRET=...
+   ADMIN_PASSWORD=...
+   ```
+3. Run the dev server:
+   ```
+   npm run dev
+   ```
+4. Open http://localhost:3000
+
+---
+
+## Deploying
+
+Every push to `main` triggers a Vercel deployment automatically (if GitHub is connected).
+
+To deploy manually:
+```
+vercel --prod
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The build runs `scripts/fetch-portfolio.mjs` first, which fetches all Cloudinary data once and caches it. This keeps Cloudinary Admin API usage low (no rate limit issues).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Admin panel
 
-## Learn More
+Go to `/admin` and enter the password from `.env.local` (`ADMIN_PASSWORD`).
 
-To learn more about Next.js, take a look at the following resources:
+What you can do:
+- **Category thumbnails** — pick the cover image shown on the category grid
+- **Project thumbnails** — pick the cover image for each project tile
+- **Reorder** — drag projects or categories to change their order
+- **Hide/show** — hide projects or categories from the public site
+- **Publiser endringer** — publishes all pending changes to the live site
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Changes to ordering, visibility, and thumbnails are saved instantly to JSON files in `data/`. They only go live when you click Publiser.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## Adding new content
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. Upload photos/videos to Cloudinary under `apex/{Category}/{Project}/`
+2. Go to admin → click **Publiser endringer** to trigger a redeploy
+   - Or push any change to `main` to trigger a fresh build that picks up new content
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+## Data files
+
+The `data/` folder holds all admin settings as JSON files. These are committed to the repo so they persist across deployments:
+
+| File | Purpose |
+|------|---------|
+| `portfolio-cache.json` | Cached Cloudinary content (regenerated on each build) |
+| `thumbnails.json` | Custom thumbnail overrides per project |
+| `category-thumbnails.json` | Custom thumbnail overrides per category |
+| `hidden.json` | List of hidden project slugs |
+| `hidden-categories.json` | List of hidden category slugs |
+| `order.json` | Custom project order per category |
+| `category-order.json` | Custom category order |
+| `thumbnail-offsets.json` | Video frame offset (seconds) for project thumbnails |
+| `category-thumbnail-offsets.json` | Video frame offset for category thumbnails |
+| `thumbnail-focal-points.json` | Focal point (x/y) for project image crops |
+| `category-thumbnail-focal-points.json` | Focal point for category image crops |
+
+---
+
+## Tech stack
+
+- **Next.js 16** — framework
+- **Cloudinary** — image/video storage and delivery
+- **Tailwind CSS** — styling
+- **Vercel** — hosting
